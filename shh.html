@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#000000">
+<title>Vyonne Cosmic Shooter 🚀</title>
+
+<style>
+body{margin:0;overflow:hidden;background:black;color:white;font-family:Arial}
+#passwordScreen,#winScreen{
+ position:absolute;width:100%;height:100%;
+ display:flex;justify-content:center;align-items:center;
+ flex-direction:column;background:black;z-index:10;text-align:center
+}
+input,button{padding:10px;margin-top:10px;font-size:16px}
+#hud{position:absolute;top:10px;left:10px;font-size:14px}
+#touchControls{
+ position:absolute;bottom:20px;width:100%;
+ display:flex;justify-content:space-between;
+ padding:0 40px;
+}
+.touchBtn{
+ width:70px;height:70px;border-radius:50%;
+ background:rgba(255,255,255,0.2);
+ display:flex;justify-content:center;align-items:center;
+ font-size:24px;
+}
+</style>
+</head>
+<body>
+
+<div id="passwordScreen">
+<h2>Enter Secret Password 💖</h2>
+<input type="password" id="pass">
+<button onclick="startGame()">Start Mission</button>
+<p id="error"></p>
+</div>
+
+<canvas id="game"></canvas>
+<div id="hud"></div>
+
+<div id="touchControls">
+<div class="touchBtn" id="leftBtn">◀</div>
+<div class="touchBtn" id="shootBtn">🔥</div>
+<div class="touchBtn" id="rightBtn">▶</div>
+</div>
+
+<div id="winScreen" style="display:none">
+🎆 GALAXY SAVED 🎆<br><br>
+💖 Vyonne, you are my brightest star 💖
+</div>
+
+<script>
+const PASSWORD="Vyonne2026";
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
+canvas.width=innerWidth;
+canvas.height=innerHeight;
+
+let player={x:canvas.width/2,y:canvas.height-80,health:100};
+let lasers=[], enemies=[], stars=[];
+let boss=null;
+let keys={},score=0,xp=0,level=1;
+let startTime,gameDuration=360;
+let gameOver=false,secret=false;
+
+for(let i=0;i<300;i++){
+ stars.push({x:Math.random()*canvas.width,
+             y:Math.random()*canvas.height,
+             size:Math.random()*2});
+}
+
+document.addEventListener("keydown",e=>keys[e.key]=true);
+document.addEventListener("keyup",e=>keys[e.key]=false);
+
+leftBtn.ontouchstart=()=>keys["ArrowLeft"]=true;
+leftBtn.ontouchend=()=>keys["ArrowLeft"]=false;
+rightBtn.ontouchstart=()=>keys["ArrowRight"]=true;
+rightBtn.ontouchend=()=>keys["ArrowRight"]=false;
+shootBtn.ontouchstart=()=>keys[" "]=true;
+shootBtn.ontouchend=()=>keys[" "]=false;
+
+function startGame(){
+ if(pass.value!==PASSWORD){
+  error.innerText="Wrong password 💔";
+  return;
+ }
+ passwordScreen.style.display="none";
+ startTime=Date.now();
+ requestAnimationFrame(update);
+}
+
+function update(){
+ if(gameOver)return;
+ ctx.clearRect(0,0,canvas.width,canvas.height);
+
+ let elapsed=Math.floor((Date.now()-startTime)/1000);
+ let remaining=gameDuration-elapsed;
+
+ // Diagonal Galaxy Background
+ ctx.fillStyle="white";
+ stars.forEach(s=>{
+   ctx.fillRect(s.x,s.y,s.size,s.size);
+   s.x+=1;
+   s.y+=1;
+   if(s.x>canvas.width||s.y>canvas.height){
+     s.x=Math.random()*canvas.width;
+     s.y=0;
+   }
+ });
+
+ // Player movement
+ if(keys["ArrowLeft"]&&player.x>0)player.x-=7;
+ if(keys["ArrowRight"]&&player.x<canvas.width)player.x+=7;
+
+ // Shoot laser
+ if(keys[" "]){
+  lasers.push({x:player.x,y:player.y});
+ }
+
+ // Draw player
+ ctx.fillStyle="cyan";
+ ctx.beginPath();
+ ctx.moveTo(player.x,player.y);
+ ctx.lineTo(player.x-20,player.y+40);
+ ctx.lineTo(player.x+20,player.y+40);
+ ctx.fill();
+
+ // Draw lasers
+ ctx.fillStyle="lime";
+ lasers.forEach((l,i)=>{
+  l.y-=10;
+  ctx.fillRect(l.x-2,l.y,4,15);
+  if(l.y<0)lasers.splice(i,1);
+ });
+
+ // Spawn enemies
+ if(Math.random()<0.03){
+  enemies.push({x:Math.random()*canvas.width,y:0,size:25,health:2});
+ }
+
+ ctx.fillStyle="red";
+ enemies.forEach((e,i)=>{
+  e.y+=3+level*0.5;
+  ctx.fillRect(e.x,e.y,e.size,e.size);
+
+  // Collision with player
+  if(e.x<player.x+20&&e.x+e.size>player.x-20&&
+     e.y<player.y+40&&e.y+e.size>player.y){
+      player.health-=10;
+      enemies.splice(i,1);
+  }
+
+  // Laser hit
+  lasers.forEach((l,li)=>{
+    if(l.x>e.x&&l.x<e.x+e.size&&
+       l.y>e.y&&l.y<e.y+e.size){
+        e.health--;
+        lasers.splice(li,1);
+        if(e.health<=0){
+          score+=20; xp+=10;
+          enemies.splice(i,1);
+        }
+    }
+  });
+
+  if(e.y>canvas.height)enemies.splice(i,1);
+ });
+
+ // Level system
+ if(xp>level*100)level++;
+
+ // Boss final minute
+ if(remaining<=60&&!boss){
+  boss={x:canvas.width/2-60,y:60,w:120,h:40,health:50};
+ }
+
+ if(boss){
+  ctx.fillStyle="purple";
+  ctx.fillRect(boss.x,boss.y,boss.w,boss.h);
+
+  // Boss health bar
+  ctx.fillStyle="white";
+  ctx.fillRect(boss.x,boss.y-10,boss.w,5);
+  ctx.fillStyle="red";
+  ctx.fillRect(boss.x,boss.y-10,boss.w*(boss.health/50),5);
+
+  lasers.forEach((l,li)=>{
+   if(l.x>boss.x&&l.x<boss.x+boss.w&&
+      l.y>boss.y&&l.y<boss.y+boss.h){
+       boss.health-=1;
+       lasers.splice(li,1);
+       if(boss.health<=0){
+        boss=null;
+        secret=true;
+       }
+   }
+  });
+ }
+
+ // Player health bar
+ ctx.fillStyle="white";
+ ctx.fillRect(20,canvas.height-30,200,15);
+ ctx.fillStyle="lime";
+ ctx.fillRect(20,canvas.height-30,200*(player.health/100),15);
+
+ if(player.health<=0){
+  alert("Mission Failed 💥");
+  location.reload();
+ }
+
+ if(remaining<=0){
+  gameOver=true;
+  winScreen.style.display="flex";
+ }
+
+ hud.innerHTML=
+ `Score:${score}<br>XP:${xp}<br>Level:${level}<br>Time:${remaining}s`;
+
+ requestAnimationFrame(update);
+}
+</script>
+</body>
+</html>
